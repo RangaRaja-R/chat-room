@@ -1,83 +1,164 @@
-import React, { Component, useEffect, useState } from "react";
+import React, { Component } from "react";
 import { w3cwebsocket as W3CWebSocket } from "websocket";
 
-function App() {
-  const [filled, setFilled] = useState(false);
-  const [messages, setMessages] = useState([]);
-  const [name, setName] = useState("");
-  const [room, setRoom] = useState("");
-  const [msg, setMsg] = useState("");
+//mui
+import Button from "@material-ui/core/Button";
+import CssBaseline from "@material-ui/core/CssBaseline";
+import TextField from "@material-ui/core/TextField";
+import Container from "@material-ui/core/Container";
+import Card from "@material-ui/core/Card";
+import CardHeader from "@material-ui/core/CardHeader";
+import Paper from "@material-ui/core/Paper";
+import { withStyles } from "@material-ui/core/styles";
+const useStyles = (theme) => ({
+  submit: {
+    margin: theme.spacing(3, 0, 2),
+  },
+});
 
-  try {
-    const host = new W3CWebSocket(
-      "ws://127.0.0.1:8000/ws/" + (room ? room : "default") + "/"
-    );
-  } catch (e) {
-    console.log("Error", e);
-  }
-
-  const sendMessage = (e) => {
+class App extends Component {
+  state = {
+    filledForm: false,
+    messages: [],
+    value: "",
+    name: "",
+    room: "test",
+  };
+  client = new W3CWebSocket("ws://127.0.0.1:8000/ws/" + this.state.room + "/");
+  OnButtonClicked = (e) => {
     e.preventDefault();
-    host.send(
+    this.client.send(
       JSON.stringify({
         type: "message",
-        text: msg,
-        sender: name,
+        text: this.state.value,
+        sender: this.state.name,
       })
     );
-    setMsg("");
+    this.state.value = "";
   };
-
-  useEffect(() => {
-    host.onopen = () => {
-      console.log("Connected to the server");
+  componentDidMount() {
+    this.client.onopen = () => {
+      console.log("Connected to the server.");
     };
-
-    host.onmessage = (received) => {
-      const dataFromServer = JSON.parse(received.data);
+    this.client.onmessage = (message) => {
+      const dataFromServer = JSON.parse(message.data);
       if (dataFromServer) {
-        setMessages((prev) => [
-          ...prev,
-          { msg: dataFromServer.content, name: dataFromServer.user },
-        ]);
+        this.setState((state) => ({
+          messages: [
+            ...state.messages,
+            {
+              msg: dataFromServer.text,
+              name: dataFromServer.sender,
+            },
+          ],
+        }));
       }
     };
-    return () => {
-      host.close();
-    };
-  });
-  return (
-    <div>
-      {filled ? (
-        <div>
-          {messages.map((index, msg) => (
-            <li key={index}>
-              {msg.name} - {msg.msg}
-            </li>
-          ))}
-          <form onSubmit={sendMessage}>
-            <input
-              type="text"
-              placeholder="enter your message..."
-              value={msg}
-              onChange={(e) => setMsg(e.target.value)}
-            />
-            <button type="submit">Send</button>
-          </form>
-        </div>
-      ) : (
-        <div>
-          <form onSubmit={() => setFilled(true)}>
-            room name:
-            <input value={room} onChange={(e) => setRoom(e.target.value)} />
-            user name:
-            <input value={name} onChange={(e) => setName(e.target.value)} />
-            <button type="submit">enter</button>
-          </form>
-        </div>
-      )}
-    </div>
-  );
+  }
+  render() {
+    const { classes } = this.props;
+    return (
+      <Container component="main" maxWidth="xs">
+        {this.state.filledForm ? (
+          <div style={{ marginTop: 50 }}>
+            Room Name: {this.state.room}
+            <Paper
+              style={{
+                height: 500,
+                maxHeight: 500,
+                overflow: "auto",
+                boxShadow: "none",
+              }}
+            >
+              {this.state.messages.map((message) => (
+                <>
+                  <Card className={classes.root}>
+                    <CardHeader title={message.name} subheader={message.msg} />
+                  </Card>
+                </>
+              ))}
+            </Paper>
+            <form
+              className={classes.form}
+              noValidate
+              onSubmit={this.OnButtonClicked}
+            >
+              <TextField
+                id="outlined-helperText"
+                label="Write text"
+                variant="outlined"
+                value={this.state.value}
+                fullWidth
+                onChange={(e) => {
+                  this.setState({ value: e.target.value });
+                  this.value = this.state.value;
+                }}
+              />
+              <Button
+                type="submit"
+                fullWidth
+                variant="contained"
+                color="primary"
+                className={classes.submit}
+              >
+                Send Message
+              </Button>
+            </form>
+          </div>
+        ) : (
+          <div>
+            <CssBaseline />
+            <div className={classes.paper}>
+              <form
+                className={classes.form}
+                noValidate
+                onSubmit={(value) => this.setState({ filledForm: true })}
+              >
+                <TextField
+                  variant="outlined"
+                  margin="normal"
+                  required
+                  fullWidth
+                  label="Room name"
+                  name="Room name"
+                  autoFocus
+                  value={this.state.room}
+                  onChange={(e) => {
+                    this.setState({ room: e.target.value });
+                    this.value = this.state.room;
+                  }}
+                />
+                <TextField
+                  variant="outlined"
+                  margin="normal"
+                  required
+                  fullWidth
+                  name="sender"
+                  label="sender"
+                  type="sender"
+                  id="sender"
+                  value={this.state.name}
+                  onChange={(e) => {
+                    this.setState({ name: e.target.value });
+                    this.value = this.state.name;
+                  }}
+                />
+                <Button
+                  type="submit"
+                  fullWidth
+                  variant="contained"
+                  color="primary"
+                  className={classes.submit}
+                >
+                  Submit
+                </Button>
+              </form>
+            </div>
+          </div>
+        )}
+      </Container>
+    );
+  }
 }
 
-export default App;
+export default withStyles(useStyles)(App);
